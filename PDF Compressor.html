@@ -135,12 +135,21 @@
             background: rgba(0, 0, 0, 0.8);
         }
 
-        /* Dark Mode Toggle */
-        #theme-toggle {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: #6a11cb;
+            width: 0;
+            transition: width 0.3s;
         }
 
         /* Responsive Design */
@@ -182,27 +191,18 @@
             <button class="primary" id="upload-button">Select PDF Files</button>
             <div class="drag-drop" id="drag-drop">Drag & Drop PDFs Here</div>
         </div>
-    </section>
-
-    <section class="features">
-        <div class="feature">
-            <img src="icon1.svg" alt="High Compression">
-            <h3>High Compression, No Quality Loss</h3>
+        <div class="progress-bar">
+            <div class="progress-bar-fill" id="progress-bar"></div>
         </div>
-        <div class="feature">
-            <img src="icon2.svg" alt="Batch Upload">
-            <h3>Batch Upload & Compress</h3>
-        </div>
-        <div class="feature">
-            <img src="icon3.svg" alt="Secure & Private">
-            <h3>Secure & Private—Files Auto Deleted</h3>
-        </div>
+        <div id="result"></div>
     </section>
 
     <footer>
         <p>&copy; 2023 PDF Compressor. All rights reserved.</p>
     </footer>
 
+    <!-- PDF-Lib Library -->
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     <script>
         // Theme Toggle
         const themeToggle = document.getElementById('theme-toggle');
@@ -233,7 +233,7 @@
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = '.pdf';
-        fileInput.multiple = true;
+        fileInput.multiple = false; // Single file upload for simplicity
 
         document.getElementById('upload-button').addEventListener('click', () => {
             fileInput.click();
@@ -244,9 +244,44 @@
             handleFiles(files);
         });
 
-        function handleFiles(files) {
-            console.log('Files uploaded:', files);
-            // Add file processing logic here
+        // Handle PDF Compression
+        async function handleFiles(files) {
+            if (files.length === 0) return;
+
+            const file = files[0];
+            const reader = new FileReader();
+
+            reader.onload = async (e) => {
+                const pdfBytes = new Uint8Array(e.target.result);
+                const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+
+                // Compress PDF (reduce quality of embedded images)
+                const pages = pdfDoc.getPages();
+                for (const page of pages) {
+                    const images = page.getEmbeddedImages();
+                    for (const image of images) {
+                        image.setQuality(0.5); // Reduce image quality (0.5 = 50%)
+                    }
+                }
+
+                // Save compressed PDF
+                const compressedPdfBytes = await pdfDoc.save();
+
+                // Create download link
+                const blob = new Blob([compressedPdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'compressed.pdf';
+                link.textContent = 'Download Compressed PDF';
+                document.getElementById('result').innerHTML = '';
+                document.getElementById('result').appendChild(link);
+
+                // Update progress bar
+                document.getElementById('progress-bar').style.width = '100%';
+            };
+
+            reader.readAsArrayBuffer(file);
         }
     </script>
 </body>
